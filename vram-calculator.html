@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VRAM Calculator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --border: #e5e5e3;
+  --border-strong: #d0d0cc;
+  --text: #111110;
+  --text-2: #4a4a48;
+  --text-3: #8a8a87;
+  --text-4: #b8b8b5;
+  --accent: #0066ff;
+  --green: #007a3d;
+  --green-bg: #f0faf4;
+  --green-border: #b8ddc8;
+  --amber: #8a5500;
+  --amber-bg: #fffbf0;
+  --amber-border: #e0d090;
+  --red: #cc2200;
+  --red-bg: #fff5f3;
+  --red-border: #f0c0b8;
+  --blue: #0055cc;
+  --blue-bg: #f0f5ff;
+  --blue-border: #b8ccf0;
+  --r: 8px;
+  --font: -apple-system, BlinkMacSystemFont, 'Arial', 'Helvetica Neue', sans-serif;
+  --mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+/* HEADER */
+.header {
+  padding: 56px 0 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.eyebrow-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+.title {
+  font-size: clamp(30px, 5vw, 50px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.title-light {
+  font-weight: 300;
+  color: var(--text-3);
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 10px;
+  max-width: 360px;
+  line-height: 1.65;
+}
+
+.hstats { display: flex; gap: 28px; align-items: flex-end; }
+.hstat { text-align: right; }
+.hstat-n {
+  font-size: 34px; font-weight: 700;
+  letter-spacing: -0.04em; line-height: 1;
+  color: var(--text);
+}
+.hstat-l {
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-4); margin-top: 3px;
+}
+
+/* CARD */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 22px;
+  margin-bottom: 10px;
+}
+
+.slabel {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 12px;
+}
+
+/* SEARCH */
+.search-wrap {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 20px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.inp-pre {
+  display: flex; align-items: center;
+  padding: 0 14px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--text-3); background: var(--bg);
+  border-right: 1px solid var(--border);
+  user-select: none; flex-shrink: 0;
+}
+
+.model-inp {
+  flex: 1; border: none; background: var(--surface);
+  color: var(--text); font-family: var(--mono); font-size: 13px;
+  padding: 0 16px; height: 46px; outline: none; min-width: 0;
+}
+.model-inp::placeholder { color: var(--text-4); }
+
+.go-btn {
+  background: var(--text); color: #fff;
+  border: none; font-family: var(--font);
+  font-weight: 600; font-size: 13px;
+  padding: 0 22px; height: 46px;
+  cursor: pointer; transition: background 0.12s;
+  display: flex; align-items: center; gap: 7px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.go-btn:hover:not(:disabled) { background: #222; }
+.go-btn:disabled { background: var(--text-4); cursor: not-allowed; }
+.go-arrow { transition: transform 0.15s; }
+.go-btn:hover .go-arrow { transform: translateX(3px); }
+
+/* PRESETS */
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.preset {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 12px; font-weight: 500;
+  padding: 5px 12px; border-radius: 20px; cursor: pointer;
+  transition: all 0.12s;
+}
+.preset:hover { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue); }
+.preset.active { background: var(--text); border-color: var(--text); color: #fff; }
+
+/* CONFIG */
+.cfg-grid {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: var(--r);
+  overflow: hidden; margin-bottom: 10px;
+}
+@media(max-width:600px){ .cfg-grid { grid-template-columns: repeat(2,1fr); } }
+
+.cfg-cell { background: var(--surface); padding: 14px 16px; }
+.cfg-cell label {
+  display: block; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 6px;
+}
+.cfg-cell select, .cfg-cell input[type="number"] {
+  width: 100%; background: transparent; border: none;
+  color: var(--text); font-family: var(--font);
+  font-size: 13px; font-weight: 500;
+  outline: none; appearance: none; -webkit-appearance: none;
+}
+.cfg-cell select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a8a87' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 2px center;
+  padding-right: 18px; cursor: pointer;
+}
+
+/* STATUS */
+.status {
+  height: 34px; display: flex; align-items: center;
+  gap: 8px; font-size: 12px; color: var(--text-3);
+  padding: 0 2px; transition: color 0.2s;
+}
+.status.ok  { color: var(--green); }
+.status.err { color: var(--red); }
+
+.spinner {
+  width: 12px; height: 12px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.65s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* NETWORK WARNING */
+.net-warn {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--amber-bg); border: 1px solid var(--amber-border);
+  border-left: 3px solid var(--amber); border-radius: var(--r);
+  padding: 13px 16px; margin-bottom: 10px;
+  font-size: 12px; color: var(--amber); line-height: 1.65;
+}
+.nw-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* RESULTS */
+.results { animation: up 0.25s ease; }
+@keyframes up { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+/* MODEL ROW */
+.model-row {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; gap: 16px;
+  margin-bottom: 18px; flex-wrap: wrap;
+}
+.model-name {
+  font-size: 20px; font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.2;
+}
+.src-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 20px;
+  border: 1px solid; margin-left: 8px; vertical-align: middle;
+}
+.src-live    { color: var(--green); border-color: var(--green-border); background: var(--green-bg); }
+.src-offline { color: var(--amber); border-color: var(--amber-border); background: var(--amber-bg); }
+
+.model-meta {
+  font-size: 12px; color: var(--text-3);
+  font-family: var(--mono); margin-top: 5px; line-height: 1.6;
+}
+.model-badge {
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 13px; white-space: nowrap;
+}
+
+/* TOTAL */
+.total-card {
+  display: grid; grid-template-columns: auto 1fr; gap: 40px;
+  align-items: center; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 28px 28px; margin-bottom: 10px;
+}
+@media(max-width:500px){ .total-card { grid-template-columns: 1fr; gap: 20px; } }
+
+.total-lbl {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 4px;
+}
+.total-num {
+  font-size: clamp(48px, 10vw, 84px);
+  font-weight: 700; letter-spacing: -0.04em; line-height: 1;
+  color: var(--text);
+}
+
+.seg-bar {
+  height: 7px; display: flex; gap: 2px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden; margin-bottom: 14px;
+}
+.seg { height: 100%; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+
+.legend { display: flex; flex-direction: column; gap: 6px; }
+.leg-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-2);
+}
+.leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.leg-val {
+  font-weight: 600; margin-left: auto;
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+}
+
+/* BREAKDOWN */
+.breakdown { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 10px; }
+@media(max-width:520px){ .breakdown { grid-template-columns: 1fr; } }
+
+.bc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 18px 20px;
+  transition: border-color 0.15s;
+}
+.bc:hover { border-color: var(--border-strong); }
+.bc-stripe { width: 20px; height: 3px; border-radius: 2px; margin-bottom: 12px; }
+.bc-lbl {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 6px;
+}
+.bc-val {
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.03em; line-height: 1; margin-bottom: 5px;
+}
+.bc-detail { font-size: 11px; color: var(--text-3); font-family: var(--mono); line-height: 1.5; }
+
+/* TABLES */
+.tbl-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden; margin-bottom: 10px;
+}
+.tbl-head {
+  padding: 11px 20px; background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.thl { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.thr { font-size: 12px; color: var(--text-3); }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-3);
+  text-align: left; padding: 10px 20px;
+  border-bottom: 1px solid var(--border); background: var(--bg);
+}
+td {
+  padding: 11px 20px; font-size: 13px;
+  color: var(--text-2); border-bottom: 1px solid var(--border);
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafaf9; }
+.td-n { font-weight: 600; color: var(--text); }
+
+.mbar-wrap { display: flex; align-items: center; gap: 10px; }
+.mbar { width: 60px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.mfill { height: 100%; border-radius: 2px; transition: width 0.7s cubic-bezier(0.16,1,0.3,1); }
+.pct-lbl { font-size: 11px; color: var(--text-3); font-family: var(--mono); min-width: 34px; }
+
+.badge {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 8px;
+  border-radius: 4px; border: 1px solid; display: inline-block;
+}
+.bfits  { color:var(--green); border-color:var(--green-border); background:var(--green-bg); }
+.btight { color:var(--amber); border-color:var(--amber-border); background:var(--amber-bg); }
+.bno    { color:var(--red);   border-color:var(--red-border);   background:var(--red-bg); }
+.bmulti { color:var(--blue);  border-color:var(--blue-border);  background:var(--blue-bg); }
+
+.hpos { color:var(--green); font-family:var(--mono); font-size:12px; }
+.hneg { color:var(--red);   font-family:var(--mono); font-size:12px; }
+
+.prec-active td { background: var(--blue-bg); }
+.prec-active .td-n { color: var(--blue); }
+
+/* FOOTNOTE */
+.footnote {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong); border-radius: var(--r);
+  padding: 13px 17px; font-size: 11px; color: var(--text-3);
+  font-family: var(--mono); line-height: 1.8; margin-top: 4px;
+}
+
+/* RESOURCES */
+.resources {
+  display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.res-btn {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 16px;
+  text-decoration: none; color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  flex: 1; min-width: 200px;
+}
+.res-btn:hover { border-color: var(--border-strong); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.res-yt:hover  { border-color: #ff0000; }
+.res-hf:hover  { border-color: #ff9d00; }
+.res-icon { width: 22px; height: 22px; flex-shrink: 0; color: var(--text-3); }
+.res-yt:hover .res-icon  { color: #ff0000; }
+.res-hf:hover .res-icon  { color: #ff9d00; }
+.res-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 2px; }
+.res-title { font-size: 13px; font-weight: 600; color: var(--text); }
+</style>
+</head>
+<body>
+<div id="app">
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div>
+      <div class="eyebrow"><span class="eyebrow-dot"></span> VRAM.calc</div>
+      <div class="title">GPU Memory <span class="title-light">for LLMs</span></div>
+      <p class="subtitle">Paste any Hugging Face model ID — fetches live config and computes exact VRAM requirements.</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n">{{ PRESETS.length }}</div><div class="hstat-l">Models</div></div>
+      <div class="hstat"><div class="hstat-n">{{ GPUS.length }}</div><div class="hstat-l">GPUs</div></div>
+      <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">Precisions</div></div>
+    </div>
+  </header>
+
+
+  <!-- RESOURCES -->
+  <div class="resources">
+    <a class="res-btn res-yt" href="https://www.youtube.com/watch?v=WyZQ73cKLMU&t=68s" target="_blank" rel="noopener">
+      <svg class="res-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      <div>
+        <div class="res-label">Watch Tutorial</div>
+        <div class="res-title">Formula 1 — Model Weights</div>
+      </div>
+    </a>
+    <a class="res-btn res-yt" href="https://youtu.be/qMC9D2Xenh4?si=QnV2-e28vjfsjyvD" target="_blank" rel="noopener">
+      <svg class="res-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      <div>
+        <div class="res-label">Watch Tutorial</div>
+        <div class="res-title">Formula 2 — KV Cache (NVIDIA)</div>
+      </div>
+    </a>
+    <a class="res-btn res-hf" href="https://huggingface.co/models" target="_blank" rel="noopener">
+      <svg class="res-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>
+      <div>
+        <div class="res-label">Find Models</div>
+        <div class="res-title">Hugging Face Model Hub</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- INPUT -->
+  <div class="card">
+    <div class="slabel">Model Identifier</div>
+    <div class="search-wrap">
+      <div class="inp-pre">hf /</div>
+      <input class="model-inp" v-model="modelInput"
+        placeholder="meta-llama/Llama-3.1-8B  or paste HF URL"
+        autocomplete="off" spellcheck="false"
+        @keydown.enter="calculate">
+      <button class="go-btn" :disabled="loading" @click="calculate">
+        Calculate <span class="go-arrow">→</span>
+      </button>
+    </div>
+    <div class="slabel">Quick Presets</div>
+    <div class="presets">
+      <button v-for="p in PRESETS" :key="p.id" class="preset"
+        :class="{ active: activePreset === p.id }" @click="setModel(p.id)">{{ p.label }}</button>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="cfg-grid">
+    <div class="cfg-cell">
+      <label>Precision</label>
+      <select v-model="precision" @change="recalc">
+        <option value="fp32">fp32 — 4 bytes</option>
+        <option value="bf16">bf16 — 2 bytes</option>
+        <option value="fp16">fp16 — 2 bytes</option>
+        <option value="int8">int8 — 1 byte</option>
+        <option value="int4">int4 — 0.5 byte</option>
+      </select>
+    </div>
+    <div class="cfg-cell">
+      <label>Context Length</label>
+      <input type="number" v-model.number="seqLen" min="128" max="131072" step="1024" @change="recalc">
+    </div>
+    <div class="cfg-cell">
+      <label>Batch Size</label>
+      <input type="number" v-model.number="batchSize" min="1" max="128" @change="recalc">
+    </div>
+    <div class="cfg-cell">
+      <label>Buffer Overhead</label>
+      <select v-model.number="overhead" @change="recalc">
+        <option :value="1.1">10% — tight</option>
+        <option :value="1.2">20% — typical</option>
+        <option :value="1.3">30% — safe</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status" :class="statusClass">
+    <div class="spinner" v-if="loading"></div>
+    <span v-if="statusMsg">{{ statusMsg }}</span>
+  </div>
+
+  <!-- NETWORK WARNING -->
+  <div class="net-warn" v-if="networkBlocked">
+    <span class="nw-icon">⚠</span>
+    <span><strong style="font-weight:600">Network restricted in this preview.</strong>
+    Presets use the offline database. Download the file and open in your browser for live HF lookups.</span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results" v-if="result">
+
+    <!-- Model info -->
+    <div class="model-row">
+      <div>
+        <div class="model-name">
+          {{ result.model.desc }}
+          <span class="src-pill" :class="result.model._source === 'live' ? 'src-live' : 'src-offline'">
+            {{ result.model._source === 'live' ? '● Live' : '○ Offline' }}
+          </span>
+        </div>
+        <div class="model-meta">
+          {{ result.model.layers }} layers · {{ result.model.heads }} attn heads · {{ result.model.kvHeads }} KV heads · hidden {{ result.model.hiddenSize }}
+          <span v-if="result.model.isMoE"> · MoE {{ result.model.totalExperts }} experts ({{ result.model.activeExperts }} active)</span>
+        </div>
+      </div>
+      <div class="model-badge">{{ fmtP(result.model.params) }} params</div>
+    </div>
+
+    <!-- Total -->
+    <div class="total-card">
+      <div>
+        <div class="total-lbl">Total VRAM Required</div>
+        <div class="total-num">{{ fmtGB(result.mem.totalGB) }}</div>
+      </div>
+      <div>
+        <div class="slabel">Memory Breakdown</div>
+        <div class="seg-bar">
+          <div class="seg" :style="{ width: wPct+'%', background: '#007a3d' }"></div>
+          <div class="seg" :style="{ width: kPct+'%', background: '#0055cc' }"></div>
+          <div class="seg" :style="{ width: oPct+'%', background: '#8a5500' }"></div>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#007a3d"></div><span>Weights</span><span class="leg-val">{{ fmtGB(result.mem.weightsGB) }}</span></div>
+          <div class="leg-item"><div class="leg-dot" style="background:#0055cc"></div><span>KV Cache</span><span class="leg-val">{{ fmtGB(result.mem.kvGB) }}</span></div>
+          <div class="leg-item"><div class="leg-dot" style="background:#8a5500"></div><span>Overhead</span><span class="leg-val">{{ fmtGB(result.mem.ohGB) }}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown cards -->
+    <div class="breakdown">
+      <div class="bc">
+        <div class="bc-stripe" style="background:#007a3d"></div>
+        <div class="bc-lbl">Model Weights</div>
+        <div class="bc-val" style="color:#007a3d">{{ fmtGB(result.mem.weightsGB) }}</div>
+        <div class="bc-detail">{{ fmtP(result.model.params) }} params × {{ P_BYTES[precision] }}B ({{ precision }})</div>
+      </div>
+      <div class="bc">
+        <div class="bc-stripe" style="background:#0055cc"></div>
+        <div class="bc-lbl">KV Cache</div>
+        <div class="bc-val" style="color:#0055cc">{{ fmtGB(result.mem.kvGB) }}</div>
+        <div class="bc-detail">{{ seqLen.toLocaleString() }} tokens · {{ result.model.kvHeads }} KV heads · batch {{ batchSize }}</div>
+      </div>
+      <div class="bc">
+        <div class="bc-stripe" style="background:#8a5500"></div>
+        <div class="bc-lbl">Activations + Overhead</div>
+        <div class="bc-val" style="color:#8a5500">{{ fmtGB(result.mem.ohGB) }}</div>
+        <div class="bc-detail">Activations + {{ Math.round((overhead-1)*100) }}% framework buffer</div>
+      </div>
+    </div>
+
+    <!-- GPU Table -->
+    <div class="tbl-card">
+      <div class="tbl-head">
+        <span class="thl">GPU Fit Analysis</span>
+        <span class="thr">{{ gpuFits }} of {{ GPUS.length }} compatible</span>
+      </div>
+      <table>
+        <thead><tr><th>GPU</th><th>VRAM</th><th>Usage</th><th>Headroom</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr v-for="g in gpuRows" :key="g.name">
+            <td class="td-n">{{ g.name }}</td>
+            <td>{{ g.vram }} GB</td>
+            <td>
+              <div class="mbar-wrap">
+                <div class="mbar"><div class="mfill" :style="{ width: g.pct+'%', background: g.fc }"></div></div>
+                <span class="pct-lbl">{{ g.pct }}%</span>
+              </div>
+            </td>
+            <td :class="g.headroom >= 0 ? 'hpos' : 'hneg'">{{ g.headroom >= 0 ? '+' : '−' }}{{ fmtGB(Math.abs(g.headroom)) }}</td>
+            <td><span class="badge" :class="g.bc">{{ g.badge }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Precision Table -->
+    <div class="tbl-card">
+      <div class="tbl-head"><span class="thl">Precision Comparison — Weights Only</span></div>
+      <table>
+        <thead><tr><th>Format</th><th>Bytes / param</th><th>Weights Memory</th><th>Quality</th></tr></thead>
+        <tbody>
+          <tr v-for="r in precRows" :key="r.p" :class="{ 'prec-active': r.active }">
+            <td class="td-n">{{ r.p }}{{ r.active ? ' ◀' : '' }}</td>
+            <td>{{ r.bytes }}</td>
+            <td>{{ r.memGB }}</td>
+            <td>{{ r.quality }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footnote -->
+    <div class="footnote">
+      // Architecture fetched from huggingface.co/api + config.json.
+      KV cache at bf16 regardless of weight precision.
+      Context: {{ seqLen.toLocaleString() }} tokens, batch {{ batchSize }}.
+      <span v-if="result.model.isMoE">MoE: all {{ result.model.totalExperts }} expert weights loaded; {{ result.model.activeExperts }} active per token.</span>
+      Formula: M = (P × bytes) × overhead · KV = 2 × layers × kvHeads × headDim × seq × batch × 2B.
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+<script>
+const { createApp, ref, computed } = Vue;
+
+const GPUS = [
+  {name:'RTX 3090',vram:24},{name:'RTX 4090',vram:24},{name:'L4',vram:24},{name:'A10G',vram:24},
+  {name:'A100 40GB',vram:40},{name:'L40S',vram:48},{name:'A40',vram:48},{name:'A100 80GB',vram:80},
+  {name:'H100 80GB',vram:80},{name:'H200 141GB',vram:141},{name:'B100 192GB',vram:192},{name:'B200 192GB',vram:192},
+];
+
+const P_BYTES   = {fp32:4, bf16:2, fp16:2, int8:1, int4:0.5};
+const P_QUALITY = {fp32:'Reference', bf16:'Excellent', fp16:'Excellent', int8:'Good', int4:'Reduced'};
+const P_ENTRIES = [['fp32',4],['bf16',2],['fp16',2],['int8',1],['int4',0.5]];
+
+const OFFLINE = {
+  'meta-llama/llama-3.1-8b':          {params:8.03e9,  layers:32,  heads:32,  kvHeads:8,   hiddenSize:4096,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:131072,desc:'Llama 3.1 8B'},
+  'meta-llama/llama-3.1-70b':         {params:70.6e9,  layers:80,  heads:64,  kvHeads:8,   hiddenSize:8192,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:131072,desc:'Llama 3.1 70B'},
+  'meta-llama/llama-3.1-405b':        {params:405e9,   layers:126, heads:128, kvHeads:8,   hiddenSize:16384, headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:131072,desc:'Llama 3.1 405B'},
+  'meta-llama/llama-3-8b':            {params:8.03e9,  layers:32,  heads:32,  kvHeads:8,   hiddenSize:4096,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:8192,  desc:'Llama 3 8B'},
+  'meta-llama/llama-3-70b':           {params:70.6e9,  layers:80,  heads:64,  kvHeads:8,   hiddenSize:8192,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:8192,  desc:'Llama 3 70B'},
+  'mistralai/mistral-7b-v0.3':        {params:7.25e9,  layers:32,  heads:32,  kvHeads:8,   hiddenSize:4096,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:32768, desc:'Mistral 7B v0.3'},
+  'mistralai/mixtral-8x7b-v0.1':      {params:46.7e9,  layers:32,  heads:32,  kvHeads:8,   hiddenSize:4096,  headDim:128,isMoE:true, totalExperts:8,  activeExperts:2,seqMax:32768, desc:'Mixtral 8×7B'},
+  'google/gemma-2-9b':                {params:9.24e9,  layers:42,  heads:16,  kvHeads:8,   hiddenSize:3584,  headDim:256,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:8192,  desc:'Gemma 2 9B'},
+  'google/gemma-2-27b':               {params:27.2e9,  layers:46,  heads:32,  kvHeads:16,  hiddenSize:4608,  headDim:144,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:8192,  desc:'Gemma 2 27B'},
+  'qwen/qwen2.5-72b':                 {params:72.7e9,  layers:80,  heads:64,  kvHeads:8,   hiddenSize:8192,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:131072,desc:'Qwen 2.5 72B'},
+  'qwen/qwen2.5-7b':                  {params:7.62e9,  layers:28,  heads:28,  kvHeads:4,   hiddenSize:3584,  headDim:128,isMoE:false,totalExperts:0,  activeExperts:0,seqMax:131072,desc:'Qwen 2.5 7B'},
+  'deepseek-ai/deepseek-v3':          {params:671e9,   layers:61,  heads:128, kvHeads:128, hiddenSize:7168,  headDim:128,isMoE:true, totalExperts:256,activeExperts:8,seqMax:65536, desc:'DeepSeek V3'},
+  'microsoft/phi-3-mini-4k-instruct': {params:3.82e9,  layers:32,  heads:32,  kvHeads:32,  hiddenSize:3072,  headDim:96, isMoE:false,totalExperts:0,  activeExperts:0,seqMax:4096,  desc:'Phi-3 Mini'},
+};
+
+const PRESETS = [
+  {id:'meta-llama/Llama-3.1-8B',label:'Llama 3.1 8B'},{id:'meta-llama/Llama-3.1-70B',label:'Llama 3.1 70B'},
+  {id:'meta-llama/Llama-3.1-405B',label:'Llama 3.1 405B'},{id:'mistralai/Mistral-7B-v0.3',label:'Mistral 7B'},
+  {id:'mistralai/Mixtral-8x7B-v0.1',label:'Mixtral 8×7B'},{id:'google/gemma-2-9b',label:'Gemma 2 9B'},
+  {id:'google/gemma-2-27b',label:'Gemma 2 27B'},{id:'Qwen/Qwen2.5-72B',label:'Qwen 2.5 72B'},
+  {id:'Qwen/Qwen2.5-7B',label:'Qwen 2.5 7B'},{id:'deepseek-ai/DeepSeek-V3',label:'DeepSeek V3'},
+  {id:'microsoft/Phi-3-mini-4k-instruct',label:'Phi-3 Mini'},
+];
+
+function n(v,fb){ const x=Number(v); return (isFinite(x)&&x>0)?x:fb; }
+
+function normId(raw){
+  return raw.trim()
+    .replace(/^https?:\/\/huggingface\.co\//i,'')
+    .replace(/\/(?:tree|blob|resolve)\/.*$/,'')
+    .replace(/\/$/,'');
+}
+
+function offlineLookup(id){
+  const k=id.toLowerCase();
+  if(OFFLINE[k]) return {...OFFLINE[k],_source:'offline'};
+  for(const[ek,ev] of Object.entries(OFFLINE))
+    if(k.includes(ek)||ek.includes(k)) return {...ev,_source:'offline'};
+  return null;
+}
+
+function parseCfg(cfg,meta){
+  if(!cfg||typeof cfg!=='object') throw new Error('config.json malformed');
+  let params=0;
+  if(meta?.safetensors?.total) params=n(meta.safetensors.total,0);
+  if(!params){
+    const h=n(cfg.hidden_size||cfg.d_model||cfg.n_embd,4096);
+    const l=n(cfg.num_hidden_layers||cfg.n_layers||cfg.num_layers,32);
+    const ff=n(cfg.intermediate_size,h*4);
+    const v=n(cfg.vocab_size,32000);
+    params=(h*v)+l*(4*h*h+2*h*ff);
+  }
+  const hiddenSize=n(cfg.hidden_size||cfg.d_model||cfg.n_embd,4096);
+  const layers=n(cfg.num_hidden_layers||cfg.n_layers||cfg.num_layers,32);
+  const heads=n(cfg.num_attention_heads||cfg.n_heads||cfg.num_heads,32);
+  const kvHeads=n(cfg.num_key_value_heads,heads);
+  const headDim=n(cfg.head_dim,Math.floor(hiddenSize/heads));
+  const moe=n(cfg.num_experts||cfg.num_local_experts||cfg.moe_num_experts||cfg.n_routed_experts,0);
+  const isMoE=moe>0||cfg.model_type==='mixtral';
+  const totalExperts=moe;
+  const activeExperts=n(cfg.num_experts_per_tok||cfg.num_selected_experts||cfg.moe_top_k,isMoE?2:0);
+  const seqMax=n(cfg.max_position_embeddings||cfg.max_seq_len||cfg.sliding_window,4096);
+  const desc=(meta&&meta.id)?meta.id:(cfg.model_type||'Unknown');
+  if(!layers||!heads||!hiddenSize) throw new Error('Could not parse architecture from config.json');
+  return {params,layers,heads,kvHeads,hiddenSize,headDim,isMoE,totalExperts,activeExperts,seqMax,desc,_source:'live'};
+}
+
+async function fetchModel(rawId){
+  const id=normId(rawId);
+  try{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),8000);
+    const [mr,cr]=await Promise.all([
+      fetch(`https://huggingface.co/api/models/${id}`,{signal:ctrl.signal}),
+      fetch(`https://huggingface.co/${id}/resolve/main/config.json`,{signal:ctrl.signal})
+    ]);
+    clearTimeout(t);
+    if(!mr.ok) throw new Error(`API ${mr.status}`);
+    if(!cr.ok) throw new Error(`config.json ${cr.status}`);
+    const [meta,cfg]=await Promise.all([mr.json(),cr.json()]);
+    return parseCfg(cfg,meta);
+  }catch(err){
+    const off=offlineLookup(id);
+    if(off) return off;
+    const isNet=err.name==='AbortError'||err.name==='TypeError';
+    if(isNet) throw new Error(`Network unavailable and "${id}" isn't in the offline database. Open in a browser to fetch any model live.`);
+    throw err;
+  }
+}
+
+function calcMem(m,prec,seq,batch,oh){
+  const bpp=P_BYTES[prec];
+  const w=(m.params*bpp)/1e9;
+  const kv=(2*m.kvHeads*m.headDim*m.layers*seq*batch*2)/1e9;
+  const act=(m.hiddenSize*seq*batch*4)/1e9;
+  const total=(w+kv+act)*oh;
+  return {weightsGB:w, kvGB:kv, ohGB:total-w-kv, totalGB:total};
+}
+
+function fmtGB(gb){
+  if(!isFinite(gb)||gb<=0) return '—';
+  if(gb>=1000) return (gb/1000).toFixed(1)+' TB';
+  if(gb<1) return (gb*1024).toFixed(0)+' MB';
+  return gb.toFixed(1)+' GB';
+}
+function fmtP(p){
+  if(!isFinite(p)||p<=0) return '—';
+  if(p>=1e12) return (p/1e12).toFixed(1)+'T';
+  if(p>=1e9)  return (p/1e9).toFixed(1)+'B';
+  if(p>=1e6)  return (p/1e6).toFixed(0)+'M';
+  return p.toString();
+}
+
+createApp({
+  setup(){
+    const modelInput=ref(''); const precision=ref('bf16');
+    const seqLen=ref(4096); const batchSize=ref(1); const overhead=ref(1.2);
+    const loading=ref(false); const statusMsg=ref(''); const statusClass=ref('');
+    const result=ref(null); const activePreset=ref(''); const networkBlocked=ref(false);
+
+    function setModel(id){ modelInput.value=id; activePreset.value=id; calculate(); }
+
+    async function calculate(){
+      const inp=modelInput.value.trim(); if(!inp) return;
+      loading.value=true; statusMsg.value='Fetching from Hugging Face…';
+      statusClass.value=''; result.value=null;
+      try{
+        const model=await fetchModel(inp);
+        if(model._source==='offline') networkBlocked.value=true;
+        const mem=calcMem(model,precision.value,seqLen.value,batchSize.value,overhead.value);
+        result.value={model,mem};
+        statusClass.value='ok';
+        statusMsg.value=`✓  ${model.desc} — ${fmtP(model.params)} params (${model._source==='live'?'live HF API':'offline cache'})`;
+      }catch(err){
+        networkBlocked.value=true; statusClass.value='err'; statusMsg.value=`✗  ${err.message}`;
+      }finally{ loading.value=false; }
+    }
+
+    function recalc(){
+      if(!result.value) return;
+      const mem=calcMem(result.value.model,precision.value,seqLen.value,batchSize.value,overhead.value);
+      result.value={...result.value,mem};
+    }
+
+    const wPct=computed(()=>!result.value?0:+(result.value.mem.weightsGB/result.value.mem.totalGB*100).toFixed(1));
+    const kPct=computed(()=>!result.value?0:+(result.value.mem.kvGB/result.value.mem.totalGB*100).toFixed(1));
+    const oPct=computed(()=>!result.value?0:+(result.value.mem.ohGB/result.value.mem.totalGB*100).toFixed(1));
+
+    const gpuRows=computed(()=>{
+      if(!result.value) return [];
+      const tot=result.value.mem.totalGB;
+      return GPUS.map(g=>{
+        const pct=Math.min(100,+(tot/g.vram*100).toFixed(0));
+        const headroom=+(g.vram-tot).toFixed(1);
+        let badge,bc,fc;
+        if(headroom>=4)       {badge='Fits';  bc='bfits'; fc='#007a3d';}
+        else if(headroom>=0)  {badge='Tight'; bc='btight';fc='#8a5500';}
+        else if(tot<=g.vram*2){badge='2× GPU';bc='bmulti';fc='#0055cc';}
+        else                  {badge='No';    bc='bno';   fc='#cc2200';}
+        return {...g,pct,headroom,badge,bc,fc};
+      });
+    });
+
+    const gpuFits=computed(()=>gpuRows.value.filter(g=>g.badge==='Fits'||g.badge==='Tight').length);
+
+    const precRows=computed(()=>{
+      if(!result.value) return [];
+      return P_ENTRIES.map(([p,bytes])=>({
+        p, bytes,
+        memGB: fmtGB((result.value.model.params*bytes)/1e9),
+        quality: P_QUALITY[p],
+        active: p===precision.value,
+      }));
+    });
+
+    return {
+      modelInput,precision,seqLen,batchSize,overhead,
+      loading,statusMsg,statusClass,result,activePreset,networkBlocked,
+      PRESETS,GPUS,P_BYTES,fmtGB,fmtP,setModel,calculate,recalc,
+      wPct,kPct,oPct,gpuRows,gpuFits,precRows,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
